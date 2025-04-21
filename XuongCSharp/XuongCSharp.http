@@ -1,0 +1,6 @@
+@XuongCSharp_HostAddress = http://localhost:5199
+
+GET {{XuongCSharp_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###

@@ -1,0 +1,14 @@
+﻿global using System.ComponentModel.DataAnnotations;
+global using Microsoft.EntityFrameworkCore;
+global using XuongCSharp.DataAccess.Data;
+global using XuongCSharp.DependencyInjection;
+global using XuongCSharp.Mapping;
+global using XuongCSharp.Services;
+global using XuongCSharp.Services.Inteplement;
+global using XuongCSharp.DTOs;
+global using AutoMapper;
+global using XuongCSharp.DTOs.ImportFile;
+global using XuongCSharp.DTOs.Staf;
+global using FluentValidation;
+global using FluentValidation.AspNetCore;
+global using XuongCSharp.Validations;
