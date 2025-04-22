@@ -1,4 +1,4 @@
-using DocumentFormat.OpenXml.Office2016.Drawing.ChartDrawing;
+﻿using DocumentFormat.OpenXml.Office2016.Drawing.ChartDrawing;
 using XuongCSharp.Validations;
 
 namespace XuongCSharp
@@ -25,11 +25,11 @@ namespace XuongCSharp
             // Add CORS
             builder.Services.AddCors(options =>
             {
-                options.AddPolicy("AllowAll", policy =>
+                options.AddPolicy("AllowBlazor", builder =>
                 {
-                    policy.AllowAnyOrigin()
-                        .AllowAnyMethod()
-                        .AllowAnyHeader();
+                    builder.WithOrigins("https://localhost:7020") 
+                           .AllowAnyMethod()
+                           .AllowAnyHeader();
                 });
             });
 
@@ -46,7 +46,7 @@ namespace XuongCSharp
 
             app.UseAuthorization();
 
-            app.UseCors("AllowAll");
+            app.UseCors("AllowBlazor");
             app.MapControllers();
 
             app.Run();

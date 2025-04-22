@@ -1,0 +1,64 @@
+﻿@inject StaffsService StaffsService
+@inject ISnackbar Snackbar
+
+<EditForm Model="Staff" OnValidSubmit="HandleValidSubmit">
+    <MudDialog>
+        <DialogContent>
+            <FluentValidationValidator />
+            <ValidationSummary />
+            <MudGrid Class="mb-5">
+                <MudItem xs="12">
+                    <MudTextField Variant="Variant.Outlined" ShrinkLabel @bind-Value="Staff.Name" Label="Tên nhân viên" Required="true" For="@(() => Staff.Name )"/>
+                </MudItem>
+                <MudItem xs="12">
+                    <MudTextField Variant="Variant.Outlined" ShrinkLabel @bind-Value="Staff.StaffCode" Label="Mã nhân viên" Required="true" For="@(() => Staff.StaffCode )" />
+                </MudItem>
+                <MudItem xs="12">
+                    <MudTextField Variant="Variant.Outlined" ShrinkLabel @bind-Value="Staff.AccountFe" Label="Tài khoản FE" Required="true" For="@(() => Staff.AccountFe )" />
+                </MudItem>
+                <MudItem xs="12">
+                    <MudTextField Variant="Variant.Outlined" ShrinkLabel @bind-Value="Staff.AccountFpt" Label="Tài khoản FPT" Required="true" For="@(() => Staff.AccountFpt )" />
+                </MudItem>
+                <MudItem xs="12">
+                    <MudSelect Label="Trạng thái" @bind-Value="Staff.Status" Variant="Variant.Outlined">
+                        <MudSelectItem Value="@((byte)0)">Hoạt động</MudSelectItem>
+                        <MudSelectItem Value="@((byte)1)">Không hoạt động</MudSelectItem>
+                    </MudSelect>
+                </MudItem>
+            </MudGrid>
+        </DialogContent>
+        <DialogActions>
+            <MudButton OnClick="Cancel" Color="Color.Secondary">Hủy</MudButton>
+            <MudButton ButtonType="ButtonType.Submit" Color="Color.Primary">Lưu</MudButton>
+        </DialogActions>
+    </MudDialog>
+</EditForm>
+
+@code{
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; }
+
+    public CreateStaffDto Staff { get; set; } = new CreateStaffDto();
+
+    private async Task HandleValidSubmit()
+    {
+        try
+        {
+            var result = await StaffsService.AddStaffAsync(Staff);
+            Snackbar.Add("Thêm nhân viên thành công", MudBlazor.Severity.Success); //
+            MudDialog.Close(DialogResult.Ok(result));
+        }
+        catch (HttpRequestException)
+        {
+            Snackbar.Add("Thêm nhân viên thất bại: Không kết nối được server", MudBlazor.Severity.Error);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Lỗi: {ex.Message}", MudBlazor.Severity.Error);
+        }
+    }
+    private void Cancel()
+    {
+        MudDialog.Cancel();
+    }
+}

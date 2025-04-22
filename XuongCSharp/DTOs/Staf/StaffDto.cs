@@ -9,7 +9,7 @@
         public string? AccountFe { get; set; }
         public byte Status { get; set; }
         public long CreatedDate { get; set; }
-        public long? LastModifiedDate { get; set; }
+        public long LastModifiedDate { get; set; }
         public List<StaffLocationDto> Locations { get; set; } = new();
     }
 }

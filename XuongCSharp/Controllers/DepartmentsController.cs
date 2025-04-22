@@ -9,9 +9,7 @@ namespace XuongCSharp.Controllers
         private readonly AppDbContext _context;
         private readonly ILogger<DepartmentsController> _logger;
 
-        public DepartmentsController(
-            AppDbContext context,
-            ILogger<DepartmentsController> logger)
+        public DepartmentsController(AppDbContext context, ILogger<DepartmentsController> logger)
         {
             _context = context;
             _logger = logger;

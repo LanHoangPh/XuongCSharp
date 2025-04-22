@@ -13,14 +13,14 @@
                 .MaximumLength(100).WithMessage("FPT email cannot exceed 100 characters")
                 .Matches(@"^[a-zA-Z0-9._-]+@fpt\.edu\.vn$").WithMessage("FPT email must end with @fpt.edu.vn")
                 .Must(email => !ContainsWhitespace(email) && !ContainsVietnameseChars(email))
-                    .WithMessage("FPT email must not contain whitespace or Vietnamese characters");
+                    .WithMessage("FPT không được chứa ký tự Vietnamese");
 
             RuleFor(x => x.AccountFe)
                 .NotEmpty().WithMessage("FE email is required")
                 .MaximumLength(100).WithMessage("FE email cannot exceed 100 characters")
                 .Matches(@"^[a-zA-Z0-9._-]+@fe\.edu\.vn$").WithMessage("FE email must end with @fe.edu.vn")
                 .Must(email => !ContainsWhitespace(email) && !ContainsVietnameseChars(email))
-                    .WithMessage("FE email must not contain whitespace or Vietnamese characters");
+                    .WithMessage("FE không được chứa ký tự Vietnamese");
         }
 
         private bool ContainsWhitespace(string value)

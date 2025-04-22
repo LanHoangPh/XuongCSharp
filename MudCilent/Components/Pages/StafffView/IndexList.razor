@@ -1,0 +1,157 @@
+﻿@page "/staffs"
+@inject StaffsService StaffsService
+@inject IDialogService DialogService
+<div class="container-fluid">
+    <PageTitle>HeHe </PageTitle>
+    <h3>Staffs Manager</h3>
+    <MudDataGrid @ref="dataGrid" T="StaffDto" ServerData="ServerReload" Filterable="false" Style="margin">
+        <ToolBarContent>
+            <MudButton Class="me-2" @onclick="CreateUser"
+                       StartIcon="@Icons.Material.Filled.PersonAddAlt1"
+                       Variant="Variant.Filled"
+                       Color="Color.Primary">
+                Add New Satff
+
+            </MudButton>
+            <MudSpacer />
+            <MudTextField T="string" ValueChanged="@(s=>OnSearch(s))" Placeholder="Search" Adornment="Adornment.Start"
+                          AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0"></MudTextField>
+        </ToolBarContent>
+        <Columns>
+            <PropertyColumn Property="x => x.Name" Title="Name" />
+            <PropertyColumn Property="x => x.StaffCode" Title="Mã Nhân Viên" />
+            <PropertyColumn Property="x => x.AccountFe" />
+            <PropertyColumn Property="x => x.AccountFpt" />
+            <PropertyColumn Property="x => x.Status" Title="StaTus">
+                <CellTemplate>
+                    @if (context.Item.Status == 0)
+                    {
+                        <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" Title="Hoạt động" />
+                    }
+                    else
+                    {
+                        <MudIcon Icon="@Icons.Material.Filled.Cancel" Color="Color.Error" Title="Không hoạt động" />
+                    }
+                </CellTemplate>
+            </PropertyColumn>
+            <PropertyColumn Property="x => x.CreatedDate" Title="Created Date">
+                <CellTemplate>
+                    @(DateTimeOffset.FromUnixTimeMilliseconds(context.Item.CreatedDate).LocalDateTime.ToString("ddd MMM yyyy"))
+                </CellTemplate>
+            </PropertyColumn>
+            <PropertyColumn Property="x => x.LastModifiedDate" Title="Created Date">
+                <CellTemplate>
+                    @(DateTimeOffset.FromUnixTimeMilliseconds(context.Item.LastModifiedDate).LocalDateTime.ToString("ddd MMM yyyy"))
+                </CellTemplate>
+            </PropertyColumn>
+            <TemplateColumn CellClass="d-flex justify-end">
+                <CellTemplate>
+                    <MudButton Class="me-2" 
+                                Variant="Variant.Filled" 
+                                StartIcon="@Icons.Material.Filled.EditNote" Color="@Color.Warning" 
+                                OnClick="@(()this.UpdateStaff(context))">
+                    </MudButton>
+                    <MudButton Class="me-2"
+                               Variant="Variant.Filled"
+                               tartIcon="@Icons.Material.Filled.Delete" Color="@Color.Warning"
+                               OnClick="@(()this.DeleteStaff(context))">
+                    </MudButton>
+                </CellTemplate>
+            </TemplateColumn>
+        </Columns>
+        <PagerContent>
+            <MudDataGridPager T="StaffDto" />
+        </PagerContent>
+    </MudDataGrid>
+</div>
+
+@code {
+    MudDataGrid<StaffDto> dataGrid;
+    string searchString = null;
+
+    private async Task CreateUser()
+    {
+        var options = new DialogOptions
+            {
+                MaxWidth = MaxWidth.ExtraSmall
+            };
+
+        var dialog = DialogService.Show<CreateorUpdateStaff>("Create Staff", options);
+        var result = await dialog.Result;
+        if (result is not null && !result.Canceled) await dataGrid.ReloadServerData();
+    }
+
+    private async Task<GridData<StaffDto>> ServerReload(GridState<StaffDto> state)
+    {
+        IEnumerable<StaffDto> data = await StaffsService.GetAllStaffAsync();
+        data = data.Where(element =>
+         {
+             if (string.IsNullOrWhiteSpace(searchString))
+                 return true;
+             if (element.Name?.Contains(searchString, StringComparison.OrdinalIgnoreCase) == true)
+                 return true;
+             if (element.StaffCode?.Contains(searchString, StringComparison.OrdinalIgnoreCase) == true)
+                 return true;
+             if (element.AccountFe?.Contains(searchString, StringComparison.OrdinalIgnoreCase) == true)
+                 return true;
+             if (element.AccountFpt?.Contains(searchString, StringComparison.OrdinalIgnoreCase) == true)
+                 return true;
+             if ($"{element.Status}".Contains(searchString))
+                 return true;
+
+             return false;
+         }).ToArray();
+        var totalItems = data.Count();
+
+        var sortDefinition = state.SortDefinitions.FirstOrDefault();
+        if (sortDefinition != null)
+        {
+            switch (sortDefinition.SortBy)
+            {
+                case nameof(StaffDto.Name):
+                    data = data.OrderByDirection(
+                        sortDefinition.Descending ? SortDirection.Descending : SortDirection.Ascending,
+                        o => o.Name
+                    );
+                    break;
+                case nameof(StaffDto.StaffCode):
+                    data = data.OrderByDirection(
+                        sortDefinition.Descending ? SortDirection.Descending : SortDirection.Ascending,
+                        o => o.StaffCode
+                    );
+                    break;
+                case nameof(StaffDto.AccountFe):
+                    data = data.OrderByDirection(
+                        sortDefinition.Descending ? SortDirection.Descending : SortDirection.Ascending,
+                        o => o.AccountFe
+                    );
+                    break;
+                case nameof(StaffDto.AccountFpt):
+                    data = data.OrderByDirection(
+                        sortDefinition.Descending ? SortDirection.Descending : SortDirection.Ascending,
+                        o => o.AccountFpt
+                    );
+                    break;
+                case nameof(StaffDto.Status):
+                    data = data.OrderByDirection(
+                        sortDefinition.Descending ? SortDirection.Descending : SortDirection.Ascending,
+                        o => o.Status
+                    );
+                    break;
+            }
+        }
+
+        var pagedData = data.Skip(state.Page * state.PageSize).Take(state.PageSize).ToArray();
+        return new GridData<StaffDto>
+            {
+                TotalItems = totalItems,
+                Items = pagedData
+            };
+    }
+
+    private Task OnSearch(string text)
+    {
+        searchString = text;
+        return dataGrid.ReloadServerData();
+    }
+}
