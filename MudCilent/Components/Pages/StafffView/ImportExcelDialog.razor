@@ -11,7 +11,7 @@
                 <PropertyColumn Property="x => x.AccountFpt" />
                 <PropertyColumn Property="x => x.Status" Title="Status">
                     <CellTemplate>
-                        @if (context.Item.Status == 1)
+                        @if (context.Item.Status == 0)
                         {
                             <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" Title="Hoạt động" />
                         }

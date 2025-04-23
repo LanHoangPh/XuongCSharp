@@ -45,8 +45,8 @@
                             <TemplateColumn CellClass="d-flex justify-end">
                                 <CellTemplate>
                                     <MudButton Variant="Variant.Filled" Color="Color.Error" Size="Size.Small"
-                                               StartIcon="@Icons.Material.Filled.Delete"
-                                               OnClick="@(() => RemoveDepartmentMajor(context.Item))">
+                                    StartIcon="@Icons.Material.Filled.Delete"
+                                    OnClick="@(() => RemoveDepartmentMajor(context.Item))">
                                         Remove
                                     </MudButton>
                                 </CellTemplate>
@@ -68,6 +68,10 @@
 
     [Parameter]
     public StaffDto Staff { get; set; }
+    protected async override Task OnInitializedAsync()
+    {
+        await RefreshStaffData();
+    }
 
     private async Task AddDepartmentMajor()
     {
@@ -96,32 +100,29 @@
     {
         try
         {
-            // Hiển thị xác nhận trước khi xóa
             var confirm = await DialogService.ShowMessageBox(
                 "Xác nhận",
-                $"Bạn có chắc muốn xóa bộ môn/chuyên ngành {location.FacilityName} - {location.DepartmentName} {(location.MajorName != null ? $" - {location.MajorName}" : "")}?",
+                $"Bạn có chắc muốn xóa tất cả bộ môn/chuyên ngành tại cơ sở {location.FacilityName}?",
                 yesText: "Có", cancelText: "Hủy");
 
             if (confirm != true)
             {
                 return;
             }
-
-            // Gọi API xóa bộ môn/chuyên ngành
-            var success = await StaffsService.RemoveDepartmentMajorAsync(Staff.Id, location);
+            var success = await StaffsService.RemoveDepartmentAsync(Staff.Id, location.FacilityId);
             if (success)
             {
-                Snackbar.Add("Xóa bộ môn/chuyên ngành thành công.", Severity.Success);
+                Snackbar.Add($"Đã xóa tất cả bộ môn/chuyên ngành tại cơ sở {location.FacilityName}.", MudBlazor.Severity.Success);
                 await RefreshStaffData();
             }
             else
             {
-                Snackbar.Add("Xóa bộ môn/chuyên ngành thất bại.", Severity.Error);
+                Snackbar.Add("Xóa thất bại: Không tìm thấy dữ liệu để xóa.", MudBlazor.Severity.Error);
             }
         }
         catch (Exception ex)
         {
-            Snackbar.Add($"Lỗi khi xóa bộ môn/chuyên ngành: {ex.Message}", Severity.Error);
+            Snackbar.Add($"Lỗi khi xóa: {ex.Message}", MudBlazor.Severity.Error);
         }
     }
 

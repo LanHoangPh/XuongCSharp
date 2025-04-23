@@ -14,7 +14,7 @@
                     <MudTextField Variant="Variant.Outlined" ShrinkLabel @bind-Value="Staff.Name" Label="Tên nhân viên" Required="true" For="@(() => Staff.Name)" />
                 </MudItem>
                 <MudItem xs="12">
-                    <MudTextField Variant="Variant.Outlined" ShrinkLabel @bind-Value="Staff.StaffCode" Label="Tên nhân viên" Required="true" For="@(() => Staff.StaffCode)" />
+                    <MudTextField Variant="Variant.Outlined" ShrinkLabel @bind-Value="Staff.StaffCode" Label="Tài khoản FPT" Required="true" For="@(() => Staff.StaffCode)" />
                 </MudItem>
                 <MudItem xs="12">
                     <MudTextField Variant="Variant.Outlined" ShrinkLabel @bind-Value="Staff.AccountFe" Label="Tài khoản FE" Required="true" For="@(() => Staff.AccountFe)" />
@@ -44,10 +44,10 @@
             Snackbar.Add("Cập nhật nhân viên thành công", MudBlazor.Severity.Success);
             MudDialog.Close(DialogResult.Ok(result));
         }
-        catch (HttpRequestException)
-        {
-            Snackbar.Add("Cập nhật nhân viên thất bại: Không kết nối được server", MudBlazor.Severity.Error);
-        }
+        // catch (HttpRequestException)
+        // {
+        //     Snackbar.Add("Cập nhật nhân viên thất bại: Không kết nối được server", MudBlazor.Severity.Error);
+        // }
         catch (Exception ex)
         {
             Snackbar.Add($"Lỗi: {ex.Message}", MudBlazor.Severity.Error);

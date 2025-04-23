@@ -39,6 +39,12 @@
             @*            Color="Color.Info"> *@
             @*     Export Excel *@
             @* </MudButton> *@
+            <MudButton Class="me-2" @onclick="ShowImportHistory"
+                       StartIcon="@Icons.Material.Filled.History"
+                       Variant="Variant.Filled"
+                       Color="Color.Secondary">
+                Show Import History
+            </MudButton>
             <MudSpacer />
             <MudTextField T="string" ValueChanged="@(s=>OnSearch(s))" Placeholder="Search" Adornment="Adornment.Start"
             AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0"></MudTextField>
@@ -124,6 +130,8 @@
                 AccountFe = args.Item.AccountFe,
                 AccountFpt = args.Item.AccountFpt,
                 Status = args.Item.Status
+               
+                
         };
         var parameters = new DialogParameters
             {
@@ -283,7 +291,6 @@
                 return;
             }
 
-            // Gọi StaffsService để đọc file Excel
             var staffs = await StaffsService.ReadExcelFileAsync(file);
 
             if (staffs == null || !staffs.Any())
@@ -292,11 +299,10 @@
                 return;
             }
 
-            // Hiển thị dialog để người dùng xem và chỉnh sửa danh sách
             var parameters = new DialogParameters
         {
             { "Staffs", staffs },
-            { "UserName", "admin" } // Thay bằng tên người dùng thực tế
+            { "UserName", "admin" } 
         };
             var options = new DialogOptions { MaxWidth = MaxWidth.Medium, CloseButton = true };
             var dialog = await DialogService.ShowAsync<ImportExcelDialog>("Import Nhân Viên", parameters, options);
@@ -352,4 +358,14 @@
     //         isLoading = false;
     //     }
     // }
+    private async Task ShowImportHistory()
+    {
+        var options = new DialogOptions
+            {
+                MaxWidth = MaxWidth.Medium,
+                CloseButton = true
+            };
+
+        await DialogService.ShowAsync<ImportHistoryDialog>("Lịch sử nhập liệu", options);
+    }
 }

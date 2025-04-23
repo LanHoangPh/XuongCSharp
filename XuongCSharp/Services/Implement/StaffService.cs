@@ -45,7 +45,8 @@ namespace XuongCSharp.Services.Inteplement
                 .FirstOrDefaultAsync(s => s.Id == id);
 
             if (staff == null)
-                throw new KeyNotFoundException($"Staff with id {id} not found");
+                throw new KeyNotFoundException($"Staff với id {id} ko khả dụng");
+
 
             return _mapper.Map<StaffDto>(staff);
         }
@@ -62,11 +63,11 @@ namespace XuongCSharp.Services.Inteplement
             var isFeEmailUnique = !await _context.Staffs.AnyAsync(s => s.AccountFe == createStaffDto.AccountFe);
 
             if (!isCodeUnique)
-                throw new ValidationException("Staff code must be unique");
+                throw new ValidationException("Mã nhân viên phải là duy nhất");
             if (!isFptEmailUnique)
-                throw new ValidationException("FPT email must be unique");
+                throw new ValidationException("FPT email phải là duy nhất");
             if (!isFeEmailUnique)
-                throw new ValidationException("FE email must be unique");
+                throw new ValidationException("FE email phải là duy nhất");
 
             var staff = _mapper.Map<Staff>(createStaffDto);
             staff.Id = Guid.NewGuid();
@@ -118,21 +119,26 @@ namespace XuongCSharp.Services.Inteplement
                 .FirstOrDefaultAsync(s => s.Id == id);
 
             if (staff == null)
-                throw new KeyNotFoundException($"Staff with ID {id} not found");
+                throw new KeyNotFoundException($"Staff với ID {id} ko khả dụng");
 
             var isFptEmailUnique = !await _context.Staffs
                 .AnyAsync(s => s.Id != id && s.AccountFpt == updateStaffDto.AccountFpt);
 
             var isFeEmailUnique = !await _context.Staffs
                 .AnyAsync(s => s.Id != id && s.AccountFe == updateStaffDto.AccountFe);
+            var isFeStaffCodeUnique = !await _context.Staffs
+                .AnyAsync(s => s.Id != id && s.StaffCode == updateStaffDto.StaffCode);
 
             if (!isFptEmailUnique)
-                throw new ValidationException("FPT email must be unique");
+                throw new ValidationException("FPT email Không đc bỏ trống");
 
             if (!isFeEmailUnique)
-                throw new ValidationException("FE email must be unique");
+                throw new ValidationException("FE email Không đc bỏ trống");
+            if (!isFeStaffCodeUnique)
+                throw new ValidationException("FE email Không đc bỏ trống");
 
             staff.Name = updateStaffDto.Name;
+            staff.StaffCode = updateStaffDto.StaffCode;
             staff.AccountFpt = updateStaffDto.AccountFpt;
             staff.AccountFe = updateStaffDto.AccountFe;
             staff.LastModifiedDate = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
@@ -148,19 +154,18 @@ namespace XuongCSharp.Services.Inteplement
             var staff = await _context.Staffs.FindAsync(id);
 
             if (staff == null)
-                throw new KeyNotFoundException($"Staff with ID {id} not found");
+                throw new KeyNotFoundException($"Staff với ID {id} ko tìm thấy");
 
             staff.Status = statusUpdateDto.Status;
             staff.LastModifiedDate = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
             _context.Staffs.Update(staff);
 
-            // Log status change
             var statusLog = new StaffStatusLog
             {
                 Id = Guid.NewGuid(),
                 StaffId = id,
-                OldStatus = staff.Status == 1 ? (byte)0 : (byte)1, // Toggle logic
+                OldStatus = staff.Status == 1 ? (byte)0 : (byte)1, 
                 NewStatus = (byte)staff.Status,
                 Reason = statusUpdateDto.Reason,
                 LoggedDate = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
@@ -177,23 +182,21 @@ namespace XuongCSharp.Services.Inteplement
             var staff = await _context.Staffs.FindAsync(staffId);
 
             if (staff == null)
-                throw new KeyNotFoundException($"Staff with ID {staffId} not found");
+                throw new KeyNotFoundException($"Staff với ID {staffId} not found");
 
-            // Check if facility, department and major exist
             var facility = await _context.Facilities.FindAsync(departmentDto.FacilityId);
             var department = await _context.Departments.FindAsync(departmentDto.DepartmentId);
             var major = await _context.Majors.FindAsync(departmentDto.MajorId);
 
             if (facility == null)
-                throw new KeyNotFoundException($"Facility with ID {departmentDto.FacilityId} not found");
+                throw new KeyNotFoundException($"Facility với ID {departmentDto.FacilityId} ko khả dụng");
 
             if (department == null)
-                throw new KeyNotFoundException($"Department with ID {departmentDto.DepartmentId} not found");
+                throw new KeyNotFoundException($"Department với ID {departmentDto.DepartmentId} ko khả dụng");
 
             if (major == null)
-                throw new KeyNotFoundException($"Specialization with ID {departmentDto.MajorId} not found");
+                throw new KeyNotFoundException($"Specialization với ID {departmentDto.MajorId} ko khả dụng");
 
-            // Check if staff already has assignment in this location
             var existingAssignments = await _context.StaffMajorFacilities
                 .Include(smf => smf.MajorFacility)
                     .ThenInclude(mf => mf!.DepartmentFacility)
@@ -202,14 +205,12 @@ namespace XuongCSharp.Services.Inteplement
                     smf.MajorFacility!.DepartmentFacility!.IdFacility == departmentDto.FacilityId)
                 .ToListAsync();
 
-            // Remove existing assignments at this location if any
             if (existingAssignments.Any())
             {
                 _context.StaffMajorFacilities.RemoveRange(existingAssignments);
                 await _context.SaveChangesAsync();
             }
 
-            // Find or create department-facility association
             var departmentFacility = await _context.DepartmentFacilities
                 .FirstOrDefaultAsync(df =>
                     df.IdDepartment == departmentDto.DepartmentId &&
@@ -230,7 +231,6 @@ namespace XuongCSharp.Services.Inteplement
                 await _context.SaveChangesAsync();
             }
 
-            // Find or create major-facility association
             var majorFacility = await _context.MajorFacilities
                 .FirstOrDefaultAsync(mf =>
                     mf.IdDepartmentFacility == departmentFacility.Id &&
@@ -251,7 +251,6 @@ namespace XuongCSharp.Services.Inteplement
                 await _context.SaveChangesAsync();
             }
 
-            // Create new staff-major-facility association
             var staffMajorFacility = new StaffMajorFacility
             {
                 Id = Guid.NewGuid(),
@@ -272,7 +271,7 @@ namespace XuongCSharp.Services.Inteplement
             var staff = await _context.Staffs.FindAsync(staffId);
 
             if (staff == null)
-                throw new KeyNotFoundException($"Staff with ID {staffId} not found");
+                throw new KeyNotFoundException($"Staff với ID {staffId} ko khả dụng");
 
             var staffAssignments = await _context.StaffMajorFacilities
                 .Include(smf => smf.MajorFacility)
@@ -290,7 +289,7 @@ namespace XuongCSharp.Services.Inteplement
 
             return true;
         }
-
+        
         public async Task<byte[]> GetImportTemplateAsync()
         {
             var excelService = new ExcelService();
@@ -428,19 +427,19 @@ namespace XuongCSharp.Services.Inteplement
         .FirstOrDefaultAsync(f => f.Code == staffImport.LocationCode);
 
             if (facility == null)
-                throw new KeyNotFoundException($"Location with code {staffImport.LocationCode} not found");
+                throw new KeyNotFoundException($"Location với code {staffImport.LocationCode} ko khả dụng");
 
             var department = await _context.Departments
                 .FirstOrDefaultAsync(d => d.Code == staffImport.DepartmentCode);
 
             if (department == null)
-                throw new KeyNotFoundException($"Department with code {staffImport.DepartmentCode} not found");
+                throw new KeyNotFoundException($"Department với code {staffImport.DepartmentCode} ko khả dụng");
 
             var major = await _context.Majors
                 .FirstOrDefaultAsync(m => m.Code == staffImport.MajorCode);
 
             if (major == null)
-                throw new KeyNotFoundException($"Specialization with code {staffImport.MajorCode} not found");
+                throw new KeyNotFoundException($"Specialization với code {staffImport.MajorCode} ko khả dụng");
 
             var existingAssignmentInFacility = await _context.StaffMajorFacilities
                         .Include(smf => smf.MajorFacility)
@@ -452,7 +451,7 @@ namespace XuongCSharp.Services.Inteplement
 
             if (existingAssignmentInFacility != null)
             {
-                throw new InvalidOperationException($"Staff is already assigned to a department and major in facility {staffImport.LocationCode}. Only one department and major per facility is allowed.");
+                throw new InvalidOperationException($"Staff đã được phân công vào một phòng ban và chuyên ngành tại cơ sở {staffImport.LocationCode}. Mỗi cơ sở chỉ được phép có một phòng ban và chuyên ngành.");
             }
 
             var departmentFacility = await _context.DepartmentFacilities
@@ -521,32 +520,32 @@ namespace XuongCSharp.Services.Inteplement
             var errors = new List<string>();
 
             if (string.IsNullOrWhiteSpace(staffImport.StaffCode))
-                errors.Add("Staff code is required");
+                errors.Add("Mã nhân viên là bắt buộc");
             else if (staffImport.StaffCode.Length > 15)
-                errors.Add("Staff code cannot exceed 15 characters");
+                errors.Add("Mã nhân viên không được vượt quá 15 ký tự");
 
             if (string.IsNullOrWhiteSpace(staffImport.Name))
-                errors.Add("Name is required");
+                errors.Add("Tên là bắt buộc");
             else if (staffImport.Name.Length > 100)
-                errors.Add("Name cannot exceed 100 characters");
+                errors.Add("Tên không được vượt quá 100 ký tự");
 
             if (string.IsNullOrWhiteSpace(staffImport.AccountFpt))
-                errors.Add("FPT email is required");
+                errors.Add("Email FPT là bắt buộc");
             else if (staffImport.AccountFpt.Length > 100)
-                errors.Add("FPT email cannot exceed 100 characters");
+                errors.Add("Email FPT không được vượt quá 100 ký tự");
             else if (!Regex.IsMatch(staffImport.AccountFpt, @"^[a-zA-Z0-9._-]+@fpt\.edu\.vn$"))
-                errors.Add("FPT email must end with @fpt.edu.vn");
+                errors.Add("Email FPT phải kết thúc bằng @fpt.edu.vn");
             else if (staffImport.AccountFpt.Contains(" ") || ContainsVietnameseChars(staffImport.AccountFpt))
-                errors.Add("FPT email must not contain whitespace or Vietnamese characters");
+                errors.Add("Email FPT không được chứa khoảng trắng hoặc ký tự tiếng Việt");
 
             if (string.IsNullOrWhiteSpace(staffImport.AccountFe))
-                errors.Add("FE email is required");
+                errors.Add("Email FE là bắt buộc");
             else if (staffImport.AccountFe.Length > 100)
-                errors.Add("FE email cannot exceed 100 characters");
+                errors.Add("Email FE không được vượt quá 100 ký tự");
             else if (!Regex.IsMatch(staffImport.AccountFe, @"^[a-zA-Z0-9._-]+@fe\.edu\.vn$"))
-                errors.Add("FE email must end with @fe.edu.vn");
+                errors.Add("Email FE phải kết thúc bằng @fe.edu.vn");
             else if (staffImport.AccountFe.Contains(" ") || ContainsVietnameseChars(staffImport.AccountFe))
-                errors.Add("FE email must not contain whitespace or Vietnamese characters");
+                errors.Add("Email FE không được chứa khoảng trắng hoặc ký tự tiếng Việt");
 
             return errors;
         }
@@ -573,7 +572,7 @@ namespace XuongCSharp.Services.Inteplement
                 .FirstOrDefaultAsync(log => log.Id == importLogId);
 
             if (importLog == null)
-                throw new KeyNotFoundException($"Import log with ID {importLogId} not found");
+                throw new KeyNotFoundException($"Import log với ID {importLogId} ko khả dụng");
 
             return _mapper.Map<ImportLogDetailDto>(importLog);
         }

@@ -27,7 +27,7 @@ namespace XuongCSharp.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error retrieving staff list");
-                return StatusCode(500, "An error occurred while retrieving staff data");
+                return StatusCode(500, "Đã xảy ra lỗi khi lấy dữ liệu nhân viên");
             }
         }
 
@@ -46,7 +46,7 @@ namespace XuongCSharp.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error retrieving staff with ID {StaffId}", id);
-                return StatusCode(500, "An error occurred while retrieving staff data");
+                return StatusCode(500, "Đã xảy ra lỗi khi lấy dữ liệu nhân viên");
             }
         }
 
@@ -65,7 +65,7 @@ namespace XuongCSharp.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error creating staff");
-                return StatusCode(500, "An error occurred while creating staff");
+                return StatusCode(500, "Đã xảy ra lỗi khi tạo nhan viên mới viên");
             }
         }
 
@@ -88,7 +88,7 @@ namespace XuongCSharp.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error updating staff with ID {StaffId}", id);
-                return StatusCode(500, "An error occurred while updating staff");
+                return StatusCode(500, "Đã xảy ra lỗi khi cập nhật nhân viên");
             }
         }
 
@@ -109,7 +109,7 @@ namespace XuongCSharp.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error updating status for staff with ID {StaffId}", id);
-                return StatusCode(500, "An error occurred while updating staff status");
+                return StatusCode(500, "Đã xảy ra lỗi khi lấy cập nhật trạng thái nhân viên");
             }
         }
 
@@ -134,11 +134,9 @@ namespace XuongCSharp.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error assigning department for staff with ID {StaffId}", id);
-                return StatusCode(500, "An error occurred while assigning department");
+                return StatusCode(500, "Đã xảy ra lỗi khi thêm cở sỏ và bộ môn chuyên ngành");
             }
         }
-
-
         [HttpDelete("{id}/departments/{facilityId}")]
         public async Task<ActionResult> RemoveDepartment(Guid id, Guid facilityId)
         {
@@ -156,7 +154,7 @@ namespace XuongCSharp.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error removing department for staff with ID {StaffId}", id);
-                return StatusCode(500, "An error occurred while removing department");
+                return StatusCode(500, "Đã xảy ra lỗi khi xóa cơ sở nhân viên");
             }
         }
 
@@ -171,7 +169,7 @@ namespace XuongCSharp.Controllers
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error generating import template");
-                return StatusCode(500, "An error occurred while generating the import template");
+                return StatusCode(500, "Đã xảy ra lỗi khi tạo mẫu nhập");
             }
         }
         //[HttpGet("export-excel")]

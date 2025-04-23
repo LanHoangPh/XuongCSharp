@@ -1,4 +1,5 @@
 ﻿using Microsoft.AspNetCore.Components.Forms;
+using XuongCSharp.DataAccess.Entities;
 
 namespace MudCilent.Services
 {
@@ -21,21 +22,21 @@ namespace MudCilent.Services
         {
             var response = await _httpClient.GetAsync($"{_baseUrl}/{id}");
             response.EnsureSuccessStatusCode();
-            return await response.Content.ReadFromJsonAsync<StaffDto>() ?? throw new KeyNotFoundException("Staff not found");
+            return await response.Content.ReadFromJsonAsync<StaffDto>() ?? throw new KeyNotFoundException("Staff ko khả dụng");
         }
 
         public async Task<StaffDto> AddStaffAsync(CreateStaffDto createStaffDto)
         {
             var response = await _httpClient.PostAsJsonAsync(_baseUrl, createStaffDto);
             response.EnsureSuccessStatusCode();
-            return await response.Content.ReadFromJsonAsync<StaffDto>() ?? throw new Exception("Failed to create staff");
+            return await response.Content.ReadFromJsonAsync<StaffDto>() ?? throw new Exception("Lõi khi tạo mới staff");
         }
 
         public async Task<StaffDto> UpdateStaffAsync(Guid id, UpdateStaffDto updateStaffDto)
         {
             var response = await _httpClient.PutAsJsonAsync($"{_baseUrl}/{id}", updateStaffDto);
             response.EnsureSuccessStatusCode();
-            return await response.Content.ReadFromJsonAsync<StaffDto>() ?? throw new KeyNotFoundException("Staff not found");
+            return await response.Content.ReadFromJsonAsync<StaffDto>() ?? throw new KeyNotFoundException("Staff ko khả dụng");
         }
 
         public async Task<bool> UpdateStaffStatusAsync(Guid id, StaffStatusUpdateDto statusUpdateDto)
@@ -70,8 +71,6 @@ namespace MudCilent.Services
                 {
                     throw new ArgumentException("File không hợp lệ hoặc rỗng.");
                 }
-
-                // Gửi file lên API
                 using var content = new MultipartFormDataContent();
                 using var stream = file.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024); // 10MB
                 using var streamContent = new StreamContent(stream);
@@ -152,7 +151,7 @@ namespace MudCilent.Services
         {
             var response = await _httpClient.GetAsync($"{_baseUrl}/import-history/{importId}");
             response.EnsureSuccessStatusCode();
-            return await response.Content.ReadFromJsonAsync<ImportLogDetailDto>() ?? throw new KeyNotFoundException("Import log not found");
+            return await response.Content.ReadFromJsonAsync<ImportLogDetailDto>() ?? throw new KeyNotFoundException("Import log ko khả dụng");
         }
     }
 }

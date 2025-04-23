@@ -1,0 +1,102 @@
+﻿@using MudBlazor
+@inject StaffsService StaffsService
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">Lịch sử nhập liệu</MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudDataGrid T="ImportLogDto" Items="@ImportLogs" SortMode="@SortMode.Single" Filterable="false"
+                     RowClass="cursor-pointer" HierarchyColumn="true" ExpandAllGroups="@false">
+            <Columns>
+                <HierarchyColumn T="ImportLogDto" />
+                <PropertyColumn Property="x => x.ImportedBy" Title="Người nhập liệu" />
+                <PropertyColumn Property="x => x.ImportDate" Title="Ngày nhập liệu">
+                    <CellTemplate>
+                        @(context.Item.ImportDate != 0 ? DateTimeOffset.FromUnixTimeMilliseconds(context.Item.ImportDate).ToString("dd/MM/yyyy HH:mm:ss") : "N/A")
+                    </CellTemplate>
+                </PropertyColumn>
+            </Columns>
+            <ChildRowContent>
+                @if (context.Item.FailedCount > 0)
+                {
+                    <MudDataGrid T="ImportLogDetailDto" Items="@ImportLogDetails[context.Item.Id]"
+                                 SortMode="@SortMode.None" Filterable="false" Dense="true">
+                        <Columns>
+                            <PropertyColumn Property="x => x.RowData" Title="Dữ liệu hàng" />
+                            <PropertyColumn Property="x => x.ErrorMessage" Title="Thông báo lỗi" />
+                        </Columns>
+                        <NoRecordsContent>
+                            <MudText>Không có chi tiết lỗi</MudText>
+                        </NoRecordsContent>
+                    </MudDataGrid>
+                }
+                else
+                {
+                    <MudText Class="pa-4">Không có lỗi trong lần nhập liệu này.</MudText>
+                }
+            </ChildRowContent>
+            <NoRecordsContent>
+                <MudText>Không có lịch sử nhập liệu nào.</MudText>
+            </NoRecordsContent>
+        </MudDataGrid>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel" Color="Color.Secondary">Đóng</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; }
+
+    private List<ImportLogDto> ImportLogs { get; set; } = new();
+    private Dictionary<Guid, List<ImportLogDetailDto>> ImportLogDetails { get; set; } = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadImportHistoryAsync();
+    }
+
+    private async Task LoadImportHistoryAsync()
+    {
+        try
+        {
+            ImportLogs = await StaffsService.GetImportHistoryAsync();
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Lỗi khi tải lịch sử nhập liệu: {ex.Message}", MudBlazor.Severity.Error);
+        }
+    }
+
+    private async Task<IEnumerable<ImportLogDetailDto>> ExpandedRowData(ImportLogDto item)
+    {
+        try
+        {
+            if (item.FailedCount == 0)
+            {
+                return new List<ImportLogDetailDto>();
+            }
+
+            if (!ImportLogDetails.ContainsKey(item.Id))
+            {
+                var details = await StaffsService.GetImportLogDetailsAsync(item.Id);
+                ImportLogDetails[item.Id] = details != null ? new List<ImportLogDetailDto> { details } : new List<ImportLogDetailDto>();
+            }
+
+            return ImportLogDetails[item.Id];
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Lỗi khi tải chi tiết lỗi: {ex.Message}", MudBlazor.Severity.Error);
+            return new List<ImportLogDetailDto>();
+        }
+    }
+
+    private void Cancel()
+    {
+        MudDialog.Cancel();
+    }
+}
