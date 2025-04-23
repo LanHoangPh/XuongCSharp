@@ -1,0 +1,102 @@
+﻿@inject StaffsService StaffsService
+@inject ISnackbar Snackbar
+
+<MudDialog>
+    <DialogContent>
+        <MudDataGrid Filterable="false" Style="margin: auto" Items="@Staffs" SortMode="@SortMode.None">
+            <Columns>
+                <PropertyColumn Property="x => x.Name" Title="Name" />
+                <PropertyColumn Property="x => x.StaffCode" Title="Mã Nhân Viên" />
+                <PropertyColumn Property="x => x.AccountFe" />
+                <PropertyColumn Property="x => x.AccountFpt" />
+                <PropertyColumn Property="x => x.Status" Title="Status">
+                    <CellTemplate>
+                        @if (context.Item.Status == 1)
+                        {
+                            <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Color="Color.Success" Title="Hoạt động" />
+                        }
+                        else
+                        {
+                            <MudIcon Icon="@Icons.Material.Filled.Cancel" Color="Color.Error" Title="Không hoạt động" />
+                        }
+                    </CellTemplate>
+                </PropertyColumn>
+                <TemplateColumn>
+                    <CellTemplate>
+                        <MudButton Size="@Size.Small" Variant="@Variant.Filled"
+                                   OnClick="@(() => RemoveEmployee(context.Item))"
+                                   StartIcon="@Icons.Material.Filled.Delete"
+                                   Color="Color.Error">
+                        </MudButton>
+                    </CellTemplate>
+                    </TemplateColumn>
+            </Columns>
+            <PagerContent>
+                <MudDataGridPager T="StaffImportDto" />
+            </PagerContent>
+        </MudDataGrid>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel" Color="Color.Secondary">Hủy</MudButton>
+        <MudButton OnClick="Submit" Color="Color.Primary" Disabled="@isImporting">
+            @(isImporting ? "Đang import..." : "Import")
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; }
+
+    [Parameter]
+    public List<StaffImportDto> Staffs { get; set; } = new List<StaffImportDto>();
+
+    [Parameter]
+    public string UserName { get; set; }
+
+    private bool isImporting = false;
+
+    private async Task RemoveEmployee(StaffImportDto staff)
+    {
+        Staffs.Remove(staff);
+        StateHasChanged();
+    }
+
+    private async Task Submit()
+    {
+        try
+        {
+            isImporting = true;
+
+            if (!Staffs.Any())
+            {
+                Snackbar.Add("Danh sách nhân viên rỗng. Vui lòng thêm dữ liệu để import.", MudBlazor.Severity.Warning);
+                return;
+            }
+            var importResult = await StaffsService.ImportStaffAsync(Staffs, UserName);
+
+            if (importResult.Success)
+            {
+                Snackbar.Add($"Import thành công nhân viên được thêm.", MudBlazor.Severity.Success);
+                MudDialog.Close(DialogResult.Ok(true));
+            }
+            else
+            {
+                Snackbar.Add($"Import thất bại: {importResult.ErrorMessage}", MudBlazor.Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Lỗi khi import nhân viên: {ex.Message}", MudBlazor.Severity.Error);
+        }
+        finally
+        {
+            isImporting = false;
+        }
+    }
+
+    private void Cancel()
+    {
+        MudDialog.Cancel();
+    }
+}

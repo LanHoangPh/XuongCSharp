@@ -1,8 +1,11 @@
 ﻿@page "/staffs"
 @using AutoMapper
+@using XuongCSharp.Import
 @inject StaffsService StaffsService
 @inject IDialogService DialogService
 @inject ISnackbar Snackbar
+@inject IJSRuntime JSRuntime
+@inject ExcelService ExcelService
 @implements IDisposable
 
 <div class="container-fluid">
@@ -11,9 +14,9 @@
     <MudDataGrid @ref="dataGrid" T="StaffDto" ServerData="ServerReload" Filterable="false" Style="margin: auto" RowClick="OpenUpdateDialog">
         <ToolBarContent>
             <MudButton Class="me-2" @onclick="CreateUser"
-                       StartIcon="@Icons.Material.Filled.PersonAddAlt1"
-                       Variant="Variant.Filled"
-                       Color="Color.Primary">
+            StartIcon="@Icons.Material.Filled.PersonAddAlt1"
+            Variant="Variant.Filled"
+            Color="Color.Primary">
                 Add New Satff
 
             </MudButton>
@@ -24,15 +27,21 @@
                     </MudButton>
                 </ActivatorContent>
             </MudFileUpload>
-            <MudButton Class="me-2" @onclick="ExportExcel"
-                       StartIcon="@Icons.Material.Filled.Download"
-                       Variant="Variant.Filled"
-                       Color="Color.Info">
-                Export Excel
+            <MudButton Class="me-2" @onclick="ExportExcelTemplate"
+                        StartIcon="@Icons.Material.Filled.Download"
+                        Variant="Variant.Filled"
+                        Color="Color.Info">
+                Export Teamplate
             </MudButton>
+            @* <MudButton Class="me-2" @onclick="ExportExcel" *@
+            @*            StartIcon="@Icons.Material.Filled.Download" *@
+            @*            Variant="Variant.Filled" *@
+            @*            Color="Color.Info"> *@
+            @*     Export Excel *@
+            @* </MudButton> *@
             <MudSpacer />
             <MudTextField T="string" ValueChanged="@(s=>OnSearch(s))" Placeholder="Search" Adornment="Adornment.Start"
-                          AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0"></MudTextField>
+            AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0"></MudTextField>
         </ToolBarContent>
         <Columns>
             <PropertyColumn Property="x => x.Name" Title="Name" />
@@ -64,18 +73,18 @@
             <TemplateColumn CellClass="d-flex justify-end">
                 <CellTemplate>
                     <MudButton Class="me-2" 
-                               Variant="Variant.Filled" 
-                               StartIcon="@Icons.Material.Filled.SwapHoriz" 
-                               Color="Color.Info" 
-                             OnClick="@(() => ToggleStaffStatusAsync(context.Item))"> 
+                    Variant="Variant.Filled" 
+                    StartIcon="@Icons.Material.Filled.SwapHoriz" 
+                    Color="Color.Info" 
+                    OnClick="@(() => ToggleStaffStatusAsync(context.Item))"> 
                         Update Status
-                     </MudButton>
-                     <MudButton Class="me-2" 
-                     Variant="Variant.Filled"
-                     StartIcon="@Icons.Material.Filled.ViewHeadline"
-                     Color="@Color.Secondary"
-                               OnClick="@(() => ShowDetails(context.Item))">
-                     Details </MudButton>
+                    </MudButton>
+                    <MudButton Class="me-2" 
+                    Variant="Variant.Filled"
+                    StartIcon="@Icons.Material.Filled.ViewHeadline"
+                    Color="@Color.Secondary"
+                    OnClick="@(() => ShowDetails(context.Item))">
+                        Details </MudButton>
                 </CellTemplate>
             </TemplateColumn>
         </Columns>
@@ -85,8 +94,11 @@
     </MudDataGrid>
 </div>
 
+
 @code {
     MudFileUpload<IBrowserFile> excelUpload;
+    private ImportResultDto ImportResult { get; set; }
+
     MudDataGrid<StaffDto> dataGrid;
     string searchString = null;
     private readonly CancellationTokenSource cts = new();
@@ -108,6 +120,7 @@
 
         var updateStaffDto = new UpdateStaffDto{
                 Name = args.Item.Name,
+                StaffCode = args.Item.StaffCode,
                 AccountFe = args.Item.AccountFe,
                 AccountFpt = args.Item.AccountFpt,
                 Status = args.Item.Status
@@ -262,20 +275,81 @@
     }
     private async Task UpLoadFile(IBrowserFile file)
     {
-        var filName = file.Name;
-
-        if (file != null)
+        try
         {
-            var result = await StaffsService.ImportStaffAsync(file, filName);
-            if (result)
+            if (file == null)
             {
-                Snackbar.Add("Upload file thành công", MudBlazor.Severity.Success);
+                Snackbar.Add("Vui lòng chọn file để import.", MudBlazor.Severity.Warning);
+                return;
+            }
+
+            // Gọi StaffsService để đọc file Excel
+            var staffs = await StaffsService.ReadExcelFileAsync(file);
+
+            if (staffs == null || !staffs.Any())
+            {
+                Snackbar.Add("File không chứa dữ liệu nhân viên hợp lệ.", MudBlazor.Severity.Warning);
+                return;
+            }
+
+            // Hiển thị dialog để người dùng xem và chỉnh sửa danh sách
+            var parameters = new DialogParameters
+        {
+            { "Staffs", staffs },
+            { "UserName", "admin" } // Thay bằng tên người dùng thực tế
+        };
+            var options = new DialogOptions { MaxWidth = MaxWidth.Medium, CloseButton = true };
+            var dialog = await DialogService.ShowAsync<ImportExcelDialog>("Import Nhân Viên", parameters, options);
+            var result = await dialog.Result;
+
+            if (!result.Canceled && result.Data is bool success && success)
+            {
+                Snackbar.Add("Import nhân viên thành công.", MudBlazor.Severity.Success);
                 await dataGrid.ReloadServerData();
             }
-            else
-            {
-                Snackbar.Add("Upload file thất bại", MudBlazor.Severity.Error);
-            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Lỗi khi import file: {ex.Message}", MudBlazor.Severity.Error);
         }
     }
+    private async Task ExportExcelTemplate()
+    {
+        try
+        {
+            var template = await StaffsService.GetImportTemplateAsync();
+            using var streamRef = new DotNetStreamReference(new MemoryStream(template));
+            await JSRuntime.InvokeVoidAsync("downloadFileFromStream", "EmployeeImportTemplate.xlsx", streamRef);
+            Snackbar.Add("Tải mẫu Excel thành công.", MudBlazor.Severity.Success);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Lỗi: {ex.Message}", MudBlazor.Severity.Error);
+        }
+    }
+    // private async Task ExportExcel()
+    // {
+    //     try
+    //     {
+    //         isLoading = true;
+    //         var excelBytes = await StaffsService.GetExportExcel(searchString);
+    //         if (excelBytes == null || excelBytes.Length == 0)
+    //         {
+    //             Snackbar.Add("Không có dữ liệu để xuất.", Severity.Warning);
+    //             return;
+    //         }
+
+    //         using var streamRef = new DotNetStreamReference(new MemoryStream(excelBytes));
+    //         await JSRuntime.InvokeVoidAsync("downloadFileFromStream", "StaffsExport.xlsx", streamRef);
+    //         Snackbar.Add("Xuất danh sách nhân viên thành công.", Severity.Success);
+    //     }
+    //     catch (Exception ex)
+    //     {
+    //         Snackbar.Add($"Lỗi khi xuất danh sách nhân viên: {ex.Message}", Severity.Error);
+    //     }
+    //     finally
+    //     {
+    //         isLoading = false;
+    //     }
+    // }
 }

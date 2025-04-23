@@ -15,4 +15,8 @@
     <ProjectReference Include="..\XuongCSharp\XuongCSharp.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Folder Include="wwwroot\bootstrap\js\" />
+  </ItemGroup>
+
 </Project>

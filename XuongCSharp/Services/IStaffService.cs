@@ -10,7 +10,8 @@
         Task<bool> AssignDepartmentAsync(Guid staffId, StaffDepartmentDto departmentDto);
         Task<bool> RemoveDepartmentAsync(Guid staffId, Guid facilityId);
         Task<byte[]> GetImportTemplateAsync();
-        Task<ImportResultDto> ImportStaffAsync(Stream fileStream, string performedBy);
+        //Task<byte[]> GetExportExcel(List<StaffDto> staffDtos);
+        Task<ImportResultDto> ImportStaffAsync(List<StaffImportDto> staffs, string performedBy);
         Task<List<ImportLogDto>> GetImportHistoryAsync();
         Task<ImportLogDetailDto> GetImportLogDetailsAsync(Guid importLogId);
     }

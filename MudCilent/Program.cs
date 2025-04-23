@@ -42,6 +42,7 @@ namespace MudCilent
             builder.Services.AddValidatorsFromAssemblyContaining<CreateStaffDtoValidator>();
             builder.Services.AddValidatorsFromAssemblyContaining<UpdateStaffDtoValidator>();
             builder.Services.AddValidatorsFromAssemblyContaining<AddDepartmentViewModelValidator>();
+            builder.Services.AddSingleton<XuongCSharp.Import.ExcelService>();
 
             var app = builder.Build();
 

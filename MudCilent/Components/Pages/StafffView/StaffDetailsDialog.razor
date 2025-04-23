@@ -22,7 +22,7 @@
                 <MudText><strong>Tài khoản FPT:</strong> @Staff.AccountFpt</MudText>
             </MudItem>
             <MudItem xs="12">
-                <MudText><strong>Trạng thái:</strong> @(Staff.Status == 0 ? "Hoạt động" : "Không hoạt động")</MudText>
+                <MudText><strong>Trạng thái:</strong> @(Staff.Status == 1 ? "Hoạt động" : "Không hoạt động")</MudText>
             </MudItem>
             <MudItem xs="12">
                 <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="AddDepartmentMajor">
@@ -37,14 +37,22 @@
                 }
                 else
                 {
-                    <MudList T="StaffLocationDto">
-                        @foreach (var dept in Staff.Locations)
-                        {
-                            <MudListItem T="StaffLocationDto">
-                                @dept.FacilityName - @dept.DepartmentName @(dept.MajorName != null ? $" - {dept.MajorName}" : "")
-                            </MudListItem>
-                        }
-                    </MudList>
+                    <MudDataGrid Items="@Staff.Locations" SortMode="@SortMode.None" Filterable="false">
+                        <Columns>
+                            <PropertyColumn Property="x => x.FacilityName" Title="Cơ sở" />
+                            <PropertyColumn Property="x => x.DepartmentName" Title="Phòng ban" />
+                            <PropertyColumn Property="x => x.MajorName" Title="Chuyên ngành" />
+                            <TemplateColumn CellClass="d-flex justify-end">
+                                <CellTemplate>
+                                    <MudButton Variant="Variant.Filled" Color="Color.Error" Size="Size.Small"
+                                               StartIcon="@Icons.Material.Filled.Delete"
+                                               OnClick="@(() => RemoveDepartmentMajor(context.Item))">
+                                        Remove
+                                    </MudButton>
+                                </CellTemplate>
+                            </TemplateColumn>
+                        </Columns>
+                    </MudDataGrid>
                 }
             </MudItem>
         </MudGrid>
@@ -79,8 +87,41 @@
 
         if (!result.Canceled)
         {
-            // Làm mới dữ liệu nhân viên để cập nhật danh sách Locations
             await RefreshStaffData();
+        }
+        await RefreshStaffData();
+    }
+
+    private async Task RemoveDepartmentMajor(StaffLocationDto location)
+    {
+        try
+        {
+            // Hiển thị xác nhận trước khi xóa
+            var confirm = await DialogService.ShowMessageBox(
+                "Xác nhận",
+                $"Bạn có chắc muốn xóa bộ môn/chuyên ngành {location.FacilityName} - {location.DepartmentName} {(location.MajorName != null ? $" - {location.MajorName}" : "")}?",
+                yesText: "Có", cancelText: "Hủy");
+
+            if (confirm != true)
+            {
+                return;
+            }
+
+            // Gọi API xóa bộ môn/chuyên ngành
+            var success = await StaffsService.RemoveDepartmentMajorAsync(Staff.Id, location);
+            if (success)
+            {
+                Snackbar.Add("Xóa bộ môn/chuyên ngành thành công.", Severity.Success);
+                await RefreshStaffData();
+            }
+            else
+            {
+                Snackbar.Add("Xóa bộ môn/chuyên ngành thất bại.", Severity.Error);
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Lỗi khi xóa bộ môn/chuyên ngành: {ex.Message}", Severity.Error);
         }
     }
 

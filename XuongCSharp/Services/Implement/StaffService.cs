@@ -120,7 +120,6 @@ namespace XuongCSharp.Services.Inteplement
             if (staff == null)
                 throw new KeyNotFoundException($"Staff with ID {id} not found");
 
-            // Check uniqueness for emails (excluding current staff)
             var isFptEmailUnique = !await _context.Staffs
                 .AnyAsync(s => s.Id != id && s.AccountFpt == updateStaffDto.AccountFpt);
 
@@ -133,7 +132,6 @@ namespace XuongCSharp.Services.Inteplement
             if (!isFeEmailUnique)
                 throw new ValidationException("FE email must be unique");
 
-            // Update staff data
             staff.Name = updateStaffDto.Name;
             staff.AccountFpt = updateStaffDto.AccountFpt;
             staff.AccountFe = updateStaffDto.AccountFe;
@@ -276,7 +274,6 @@ namespace XuongCSharp.Services.Inteplement
             if (staff == null)
                 throw new KeyNotFoundException($"Staff with ID {staffId} not found");
 
-            // Find assignments for this staff at the specified location
             var staffAssignments = await _context.StaffMajorFacilities
                 .Include(smf => smf.MajorFacility)
                     .ThenInclude(mf => mf!.DepartmentFacility)
@@ -300,10 +297,31 @@ namespace XuongCSharp.Services.Inteplement
             return excelService.GenerateImportTemplate();
         }
 
-        public async Task<ImportResultDto> ImportStaffAsync(Stream fileStream, string performedBy)
+        public async Task<ImportResultDto> ImportStaffAsync(List<StaffImportDto> staffs, string performedBy)
         {
-            var excelService = new ExcelService();
-            var staffList = excelService.ReadStaffFromExcel(fileStream);
+            if (staffs == null || !staffs.Any())
+            {
+                return new ImportResultDto
+                {
+                    Success = false,
+                    ErrorMessage = "Danh sách nhân viên không hợp lệ hoặc rỗng.",
+                    SuccessCount = 0,
+                    FailCount = 0,
+                    Errors = new List<string>()
+                };
+            }
+
+            if (string.IsNullOrEmpty(performedBy))
+            {
+                return new ImportResultDto
+                {
+                    Success = false,
+                    ErrorMessage = "Tên người thực hiện không được để trống.",
+                    SuccessCount = 0,
+                    FailCount = 0,
+                    Errors = new List<string>()
+                };
+            }
 
             var importLog = new ImportLog
             {
@@ -311,14 +329,15 @@ namespace XuongCSharp.Services.Inteplement
                 PerformedBy = performedBy,
                 ImportDate = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
                 SuccessCount = 0,
-                FailCount = 0
+                FailCount = 0,
+                ImportLogDetails = new List<ImportLogDetail>()
             };
 
             var successCount = 0;
             var failCount = 0;
             var errors = new List<string>();
 
-            foreach (var staffImport in staffList)
+            foreach (var staffImport in staffs)
             {
                 try
                 {
@@ -350,13 +369,12 @@ namespace XuongCSharp.Services.Inteplement
                             AccountFpt = staffImport.AccountFpt,
                             AccountFe = staffImport.AccountFe,
                             Status = staffImport.Status,
-                            CreatedDate = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
+                            CreatedDate = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds(),
+                            LastModifiedDate = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
                         };
 
                         await _context.Staffs.AddAsync(newStaff);
-
                         await AssignDepartmentAndMajor(newStaff.Id, staffImport);
-
                         successCount++;
                     }
                     else
@@ -368,9 +386,7 @@ namespace XuongCSharp.Services.Inteplement
                         existingStaff.LastModifiedDate = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds();
 
                         _context.Staffs.Update(existingStaff);
-
                         await AssignDepartmentAndMajor(existingStaff.Id, staffImport);
-
                         successCount++;
                     }
                 }
@@ -397,10 +413,12 @@ namespace XuongCSharp.Services.Inteplement
 
             return new ImportResultDto
             {
+                Success = true,
                 ImportId = importLog.Id,
                 SuccessCount = successCount,
                 FailCount = failCount,
-                Errors = errors
+                Errors = errors,
+                ErrorMessage = errors.Any() ? "Một số nhân viên không được import do lỗi dữ liệu." : null
             };
         }
 
@@ -437,7 +455,6 @@ namespace XuongCSharp.Services.Inteplement
                 throw new InvalidOperationException($"Staff is already assigned to a department and major in facility {staffImport.LocationCode}. Only one department and major per facility is allowed.");
             }
 
-            // Find or create department-facility association
             var departmentFacility = await _context.DepartmentFacilities
                 .FirstOrDefaultAsync(df =>
                     df.IdDepartment == department.Id &&
@@ -458,7 +475,6 @@ namespace XuongCSharp.Services.Inteplement
                 await _context.SaveChangesAsync();
             }
 
-            // Find or create major-facility association
             var majorFacility = await _context.MajorFacilities
                 .FirstOrDefaultAsync(mf =>
                     mf.IdDepartmentFacility == departmentFacility.Id &&
@@ -479,7 +495,6 @@ namespace XuongCSharp.Services.Inteplement
                 await _context.SaveChangesAsync();
             }
 
-            // Check if staff already has this assignment
             var existingAssignment = await _context.StaffMajorFacilities
                 .FirstOrDefaultAsync(smf =>
                     smf.IdStaff == staffId &&
@@ -487,7 +502,6 @@ namespace XuongCSharp.Services.Inteplement
 
             if (existingAssignment == null)
             {
-                // Create new staff-major-facility association
                 var staffMajorFacility = new StaffMajorFacility
                 {
                     Id = Guid.NewGuid(),
@@ -534,15 +548,6 @@ namespace XuongCSharp.Services.Inteplement
             else if (staffImport.AccountFe.Contains(" ") || ContainsVietnameseChars(staffImport.AccountFe))
                 errors.Add("FE email must not contain whitespace or Vietnamese characters");
 
-            if (string.IsNullOrWhiteSpace(staffImport.LocationCode))
-                errors.Add("Location code is required");
-
-            if (string.IsNullOrWhiteSpace(staffImport.DepartmentCode))
-                errors.Add("Department code is required");
-
-            if (string.IsNullOrWhiteSpace(staffImport.MajorCode))
-                errors.Add("Specialization code is required");
-
             return errors;
         }
 
@@ -551,7 +556,7 @@ namespace XuongCSharp.Services.Inteplement
             string vietnameseChars = "àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ";
             return value.ToLower().Any(c => vietnameseChars.Contains(c));
         }
-
+                  
         public async Task<List<ImportLogDto>> GetImportHistoryAsync()
         {
             var importLogs = await _context.ImportLogs
@@ -572,5 +577,11 @@ namespace XuongCSharp.Services.Inteplement
 
             return _mapper.Map<ImportLogDetailDto>(importLog);
         }
+
+        //public Task<byte[]> GetExportExcel(List<StaffDto> staffDtos)
+        //{
+        //    var excelService = new ExcelService();
+        //    return excelService.ExportStaffsToExcel(staffDtos);
+        //}
     }
 }

@@ -1,4 +1,6 @@
-﻿namespace MudCilent.Services
+﻿using Microsoft.AspNetCore.Components.Forms;
+
+namespace MudCilent.Services
 {
     public class StaffsService
     {
@@ -60,16 +62,85 @@
             response.EnsureSuccessStatusCode();
             return await response.Content.ReadAsByteArrayAsync();
         }
-
-        public async Task<ImportResultDto> ImportStaffAsync(Stream fileStream, string userName)
+        public async Task<List<StaffImportDto>> ReadExcelFileAsync(IBrowserFile file)
         {
-            using var content = new MultipartFormDataContent();
-            using var streamContent = new StreamContent(fileStream);
-            content.Add(streamContent, "file", "EmployeeImport.xlsx");
+            try
+            {
+                if (file == null)
+                {
+                    throw new ArgumentException("File không hợp lệ hoặc rỗng.");
+                }
 
-            var response = await _httpClient.PostAsync($"{_baseUrl}/import", content);
-            response.EnsureSuccessStatusCode();
-            return await response.Content.ReadFromJsonAsync<ImportResultDto>() ?? throw new Exception("Failed to import staff");
+                // Gửi file lên API
+                using var content = new MultipartFormDataContent();
+                using var stream = file.OpenReadStream(maxAllowedSize: 10 * 1024 * 1024); // 10MB
+                using var streamContent = new StreamContent(stream);
+                content.Add(streamContent, "file", file.Name);
+
+                var response = await _httpClient.PostAsync($"{_baseUrl}/read-excel", content);
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    var errorContent = await response.Content.ReadAsStringAsync();
+                    throw new HttpRequestException($"Yêu cầu đọc file Excel thất bại. Mã trạng thái: {response.StatusCode}. Chi tiết: {errorContent}");
+                }
+
+                var staffs = await response.Content.ReadFromJsonAsync<List<StaffImportDto>>();
+                if (staffs == null)
+                {
+                    throw new InvalidOperationException("Không thể đọc danh sách nhân viên từ server.");
+                }
+
+                return staffs;
+            }
+            catch (HttpRequestException ex)
+            {
+                throw new Exception($"Lỗi khi gọi API đọc file Excel: {ex.Message}", ex);
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Lỗi không xác định khi đọc file Excel: {ex.Message}", ex);
+            }
+        }
+        public async Task<ImportResultDto> ImportStaffAsync(List<StaffImportDto> staffs, string userName)
+        {
+            try
+            {
+                if (staffs == null || !staffs.Any())
+                {
+                    throw new ArgumentException("Danh sách nhân viên không hợp lệ hoặc rỗng.");
+                }
+
+                if (string.IsNullOrEmpty(userName))
+                {
+                    throw new ArgumentException("Tên người dùng không được để trống.");
+                }
+
+                var requestUri = $"{_baseUrl}/import?userName={Uri.EscapeDataString(userName)}";
+                var response = await _httpClient.PostAsJsonAsync(requestUri, staffs);
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    var errorContent = await response.Content.ReadAsStringAsync();
+                    throw new HttpRequestException($"Yêu cầu import thất bại. Mã trạng thái: {response.StatusCode}. Chi tiết: {errorContent}");
+                }
+
+                var importResult = await response.Content.ReadFromJsonAsync<ImportResultDto>();
+                if (importResult == null)
+                {
+                    throw new InvalidOperationException("Không thể đọc kết quả import từ server.");
+                }
+
+                return importResult;
+            }
+            catch (HttpRequestException ex)
+            {
+                throw new Exception($"Lỗi khi gọi API import: {ex.Message}", ex);
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Lỗi không xác định khi import nhân viên: {ex.Message}", ex);
+            }
         }
 
         public async Task<List<ImportLogDto>> GetImportHistoryAsync()

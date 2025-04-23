@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using XuongCSharp.Import;
 namespace XuongCSharp.Controllers
 {
     [Route("api/[controller]")]
@@ -173,25 +174,53 @@ namespace XuongCSharp.Controllers
                 return StatusCode(500, "An error occurred while generating the import template");
             }
         }
+        //[HttpGet("export-excel")]
+        //public async Task<ActionResult> GetExportExcel([FromQuery] string search = "")
+        //{ 
+        //    try
+        //    {
+        //        var excelBytes = await _staffService.GetExportExcel(search);
+        //        return File(excelBytes, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "StaffsExport.xlsx");
+        //    }
+        //    catch (Exception ex)
+        //    {
+        //        _logger.LogError(ex, "Error exporting staff data to Excel");
+        //        return StatusCode(500, new { Message = "An error occurred while exporting staff data to Excel", Details = ex.Message });
+        //    }
+        //}
 
         [HttpPost("import")]
-        public async Task<ActionResult<ImportResultDto>> ImportStaff(IFormFile file)
+        public async Task<ActionResult<ImportResultDto>> ImportStaff([FromBody] List<StaffImportDto> staffs, [FromQuery] string userName)
         {
             try
             {
-                if (file == null || file.Length == 0)
-                    return BadRequest("File is required");
+                if (staffs == null || !staffs.Any())
+                {
+                    return BadRequest(new ImportResultDto
+                    {
+                        Success = false,
+                        ErrorMessage = "Danh sách nhân viên không hợp lệ hoặc rỗng.",
+                        SuccessCount = 0,
+                        FailCount = 0,
+                        Errors = new List<string>()
+                    });
+                }
 
-                var userName = User.Identity!.Name ?? "System"; // Get authenticated user
-
-                using var stream = file.OpenReadStream();
-                var result = await _staffService.ImportStaffAsync(stream, userName);
-                return result;
+                userName ??= User.Identity?.Name ?? "System";
+                var result = await _staffService.ImportStaffAsync(staffs, userName);
+                return Ok(result);
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error importing staff data");
-                return StatusCode(500, "An error occurred while importing staff data");
+                return StatusCode(500, new ImportResultDto
+                {
+                    Success = false,
+                    ErrorMessage = $"An error occurred while importing staff data: {ex.Message}",
+                    SuccessCount = 0,
+                    FailCount = 0,
+                    Errors = new List<string>()
+                });
             }
         }
 
@@ -226,6 +255,27 @@ namespace XuongCSharp.Controllers
             {
                 _logger.LogError(ex, "Error retrieving import details for ID {ImportId}", importId);
                 return StatusCode(500, "An error occurred while retrieving import details");
+            }
+        }
+        [HttpPost("read-excel")]
+        public async Task<ActionResult<List<StaffImportDto>>> ReadExcel([FromForm] IFormFile file)
+        {
+            try
+            {
+                if (file == null || file.Length == 0)
+                {
+                    return BadRequest("File không hợp lệ hoặc rỗng.");
+                }
+
+                using var stream = file.OpenReadStream();
+                var excelService = new ExcelService();
+                var staffs = excelService.ReadStaffFromExcel(stream);
+                return Ok(staffs);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error reading Excel file");
+                return StatusCode(500, $"Lỗi khi đọc file Excel: {ex.Message}");
             }
         }
     }

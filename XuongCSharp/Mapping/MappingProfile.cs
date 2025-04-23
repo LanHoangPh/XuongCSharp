@@ -40,7 +40,9 @@ namespace XuongCSharp.Mapping
                     DepartmentId = department.Id,
                     DepartmentName = department.Name,
                     MajorId = major.Id,
-                    MajorName = major.Name
+                    MajorName = major.Name,
+                    StaffId = staff.Id
+
                 });
             }
 
