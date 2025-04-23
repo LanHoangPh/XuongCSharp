@@ -137,6 +137,7 @@ namespace XuongCSharp.Controllers
             }
         }
 
+
         [HttpDelete("{id}/departments/{facilityId}")]
         public async Task<ActionResult> RemoveDepartment(Guid id, Guid facilityId)
         {

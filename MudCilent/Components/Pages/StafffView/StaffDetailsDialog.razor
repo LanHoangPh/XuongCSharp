@@ -1,0 +1,107 @@
+﻿@using MudBlazor
+@inject StaffsService StaffsService
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+<MudDialog>
+    <TitleContent>
+        <MudText Typo="Typo.h6">Chi tiết nhân viên: @Staff.Name</MudText>
+    </TitleContent>
+    <DialogContent>
+        <MudGrid>
+            <MudItem xs="12">
+                <MudText><strong>Tên:</strong> @Staff.Name</MudText>
+            </MudItem>
+            <MudItem xs="12">
+                <MudText><strong>Mã nhân viên:</strong> @Staff.StaffCode</MudText>
+            </MudItem>
+            <MudItem xs="12">
+                <MudText><strong>Tài khoản FE:</strong> @Staff.AccountFe</MudText>
+            </MudItem>
+            <MudItem xs="12">
+                <MudText><strong>Tài khoản FPT:</strong> @Staff.AccountFpt</MudText>
+            </MudItem>
+            <MudItem xs="12">
+                <MudText><strong>Trạng thái:</strong> @(Staff.Status == 0 ? "Hoạt động" : "Không hoạt động")</MudText>
+            </MudItem>
+            <MudItem xs="12">
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="AddDepartmentMajor">
+                    Thêm bộ môn / chuyên ngành
+                </MudButton>
+            </MudItem>
+            <MudItem xs="12">
+                <MudText Typo="Typo.h6">Danh sách bộ môn / chuyên ngành đã gán:</MudText>
+                @if (Staff.Locations == null || !Staff.Locations.Any())
+                {
+                    <MudText>Chưa có bộ môn/chuyên ngành nào được gán.</MudText>
+                }
+                else
+                {
+                    <MudList T="StaffLocationDto">
+                        @foreach (var dept in Staff.Locations)
+                        {
+                            <MudListItem T="StaffLocationDto">
+                                @dept.FacilityName - @dept.DepartmentName @(dept.MajorName != null ? $" - {dept.MajorName}" : "")
+                            </MudListItem>
+                        }
+                    </MudList>
+                }
+            </MudItem>
+        </MudGrid>
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel" Color="Color.Secondary">Đóng</MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; }
+
+    [Parameter]
+    public StaffDto Staff { get; set; }
+
+    private async Task AddDepartmentMajor()
+    {
+        var parameters = new DialogParameters
+            {
+                ["StaffId"] = Staff.Id
+            };
+
+        var options = new DialogOptions
+            {
+                MaxWidth = MaxWidth.Small,
+                CloseButton = true
+            };
+
+        var dialog = DialogService.Show<AddDepartmentDialog>("Thêm bộ môn / chuyên ngành", parameters, options);
+        var result = await dialog.Result;
+
+        if (!result.Canceled)
+        {
+            // Làm mới dữ liệu nhân viên để cập nhật danh sách Locations
+            await RefreshStaffData();
+        }
+    }
+
+    private async Task RefreshStaffData()
+    {
+        try
+        {
+            var updatedStaff = await StaffsService.GetStaffByIdAsync(Staff.Id);
+            if (updatedStaff != null)
+            {
+                Staff = updatedStaff;
+            }
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Lỗi khi làm mới dữ liệu nhân viên: {ex.Message}", MudBlazor.Severity.Error);
+        }
+    }
+
+    private void Cancel()
+    {
+        MudDialog.Cancel();
+    }
+}

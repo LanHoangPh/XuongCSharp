@@ -1,0 +1,233 @@
+﻿@using MudBlazor
+@inject StaffsService StaffsService
+@inject ISnackbar Snackbar
+@inject DepartmentService DepartmentService
+@inject LocationService LocationService
+@inject SpecializationService SpecializationService
+
+<EditForm Model="ViewModel" OnValidSubmit="HandleValidSubmit">
+    <MudDialog>
+        <TitleContent>
+            <MudText Typo="Typo.h6">Thêm bộ môn / chuyên ngành</MudText>
+        </TitleContent>
+        <DialogContent>
+            @if (CanAddMoreFacilities){
+                <FluentValidationValidator />
+                <ValidationSummary />
+                <MudGrid Class="mb-5">
+                    <MudItem xs="12">
+                        <MudSelect T="Guid" Label="Cơ sở" Variant="Variant.Outlined" @bind-Value="ViewModel.FacilityId" Required="true" For="@(() => ViewModel.FacilityId)">
+                            <MudSelectItem Value="@Guid.Empty">Chọn cơ sở</MudSelectItem>
+                            @foreach (var facility in AvailableFacilities)
+                            {
+                                <MudSelectItem Value="@facility.Id">@facility.Name</MudSelectItem>
+                            }
+                        </MudSelect>
+                    </MudItem>
+                    <MudItem xs="12">
+                        <MudSelect T="Guid" Label="Bộ môn" Variant="Variant.Outlined" @bind-Value="ViewModel.DepartmentId" Required="true" For="@(() => ViewModel.DepartmentId)" Disabled="@(ViewModel.FacilityId == Guid.Empty)">
+                            <MudSelectItem Value="@Guid.Empty">Chọn bộ môn</MudSelectItem>
+                            @foreach (var department in Departments)
+                            {
+                                <MudSelectItem Value="@department.Id">@department.Name</MudSelectItem>
+                            }
+                        </MudSelect>
+                    </MudItem>
+                    <MudItem xs="12">
+                        <MudSelect T="Guid" Label="Chuyên ngành" Variant="Variant.Outlined" @bind-Value="ViewModel.MajorId" Required="true" For="@(() => ViewModel.MajorId)" Disabled="@(ViewModel.DepartmentId == Guid.Empty)">
+                            <MudSelectItem Value="@Guid.Empty">Chọn chuyên ngành</MudSelectItem>
+                            @foreach (var major in Majors)
+                            {
+                                <MudSelectItem Value="@major.Id">@major.Name</MudSelectItem>
+                            }
+                        </MudSelect>
+                    </MudItem>
+                </MudGrid>
+            }
+            else
+            {
+                <MudText Color="Color.Error">Nhân viên đã được gán bộ môn và chuyên ngành tại tất cả cơ sở. Không thể thêm nữa.</MudText>
+            }
+            
+        </DialogContent>
+        <DialogActions>
+            <MudButton OnClick="Cancel" Color="Color.Secondary">Hủy</MudButton>
+            <MudButton ButtonType="ButtonType.Submit" Color="Color.Primary">Lưu</MudButton>
+        </DialogActions>
+    </MudDialog>
+</EditForm>
+
+@code {
+    [CascadingParameter]
+    private IMudDialogInstance MudDialog { get; set; }
+
+    [Parameter]
+    public Guid StaffId { get; set; }
+
+    public AddDepartmentViewModel ViewModel { get; set; } = new AddDepartmentViewModel();
+    private List<FacilityDto> Facilities { get; set; } = new();
+    private List<DepartmentDto> Departments { get; set; } = new();
+    private List<MajorDto> Majors { get; set; } = new();
+    private List<StaffLocationDto> AssignedLocations { get; set; } = new();
+    public bool CanAddMoreFacilities { get; set; } = true;
+    private List<FacilityDto> AvailableFacilities { get; set; } = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var faclities = await LocationService.GetLocationsAsync();
+            if (faclities == null || !faclities.Any())
+            {
+                Snackbar.Add("Không có cơ sở nào để hiển thị.", MudBlazor.Severity.Warning);
+                return;
+            }
+            Facilities = faclities;
+            var staff = await StaffsService.GetStaffByIdAsync(StaffId);
+            if (staff == null || staff.Locations == null)
+            {
+                Snackbar.Add("Không thể tải thông tin nhân viên.", MudBlazor.Severity.Warning);
+                AssignedLocations = new();
+            }
+            else
+            {
+                AssignedLocations = staff.Locations;
+            }
+
+            AvailableFacilities = Facilities
+                .Where(f => !AssignedLocations.Any(l => l.FacilityId == f.Id && l.MajorId != null && l.MajorId != Guid.Empty))
+                .ToList();
+
+            if (!AvailableFacilities.Any())
+            {
+                CanAddMoreFacilities = false;
+                return;
+            }
+
+            ViewModel.OnFacilityChanged = async (facilityId) => await HandleFacilityChanged(facilityId);
+            ViewModel.OnDepartmentChanged = async (departmentId) => await HandleDepartmentChanged(departmentId);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Lỗi khi tải danh sách cơ sở: {ex.Message}", MudBlazor.Severity.Error);
+        }
+    }
+
+    private async Task HandleFacilityChanged(Guid facilityId)
+    {
+        ViewModel.FacilityId = facilityId;
+        ViewModel.DepartmentId = Guid.Empty; 
+        ViewModel.MajorId = Guid.Empty;
+        Majors = new(); 
+
+        if (facilityId != Guid.Empty)
+        {
+            try
+            {
+                Departments = await DepartmentService.GetDepartmentsByLocationAsync(facilityId);
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Lỗi khi tải danh sách bộ môn: {ex.Message}", MudBlazor.Severity.Error);
+                Departments = new();
+            }
+        }
+        else
+        {
+            Departments = new();
+        }
+    }
+
+    private async Task HandleDepartmentChanged(Guid departmentId)
+    {
+        ViewModel.DepartmentId = departmentId;
+        ViewModel.MajorId = Guid.Empty; 
+
+        if (departmentId != Guid.Empty && ViewModel.FacilityId != Guid.Empty)
+        {
+            try
+            {
+                Majors = await SpecializationService.GetSpecializationsByDepartmentAsync(ViewModel.FacilityId, departmentId);
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Lỗi khi tải danh sách chuyên ngành: {ex.Message}", MudBlazor.Severity.Error);
+                Majors = new();
+            }
+        }
+        else
+        {
+            Majors = new();
+        }
+    }
+
+    private async Task HandleValidSubmit()
+    {
+        try
+        {
+            var staffDepartmentDto = new StaffDepartmentDto
+                {
+                    FacilityId = ViewModel.FacilityId,
+                    DepartmentId = ViewModel.DepartmentId,
+                    MajorId = ViewModel.MajorId
+                };
+
+            var result = await StaffsService.AssignDepartmentAsync(StaffId, staffDepartmentDto);
+            Snackbar.Add("Thêm bộ môn/chuyên ngành thành công", MudBlazor.Severity.Success);
+            MudDialog.Close(DialogResult.Ok(result));
+        }
+        catch (HttpRequestException)
+        {
+            Snackbar.Add("Thêm bộ môn/chuyên ngành thất bại: Không kết nối được server", MudBlazor.Severity.Error);
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Add($"Lỗi: {ex.Message}", MudBlazor.Severity.Error);
+        }
+    }
+
+    private void Cancel()
+    {
+        MudDialog.Cancel();
+    }
+}
+
+@* DTOs *@
+@code {
+    public class AddDepartmentViewModel
+    {
+        private Guid _facilityId;
+        private Guid _departmentId;
+
+        public Guid FacilityId
+        {
+            get => _facilityId;
+            set
+            {
+                if (_facilityId != value)
+                {
+                    _facilityId = value;
+                    OnFacilityChanged?.Invoke(value);
+                }
+            }
+        }
+
+        public Guid DepartmentId
+        {
+            get => _departmentId;
+            set
+            {
+                if (_departmentId != value)
+                {
+                    _departmentId = value;
+                    OnDepartmentChanged?.Invoke(value);
+                }
+            }
+        }
+
+        public Guid MajorId { get; set; }
+
+        public Action<Guid>? OnFacilityChanged { get; set; }
+        public Action<Guid>? OnDepartmentChanged { get; set; }
+    }
+}

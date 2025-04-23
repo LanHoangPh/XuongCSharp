@@ -5,6 +5,7 @@ using MudCilent.Components;
 using MudCilent.Services;
 using XuongCSharp.Validations;
 using DocumentFormat.OpenXml.Office2016.Drawing.ChartDrawing;
+using MudCilent.Validations;
 
 namespace MudCilent
 {
@@ -40,6 +41,7 @@ namespace MudCilent
             builder.Services.AddFluentValidationAutoValidation();
             builder.Services.AddValidatorsFromAssemblyContaining<CreateStaffDtoValidator>();
             builder.Services.AddValidatorsFromAssemblyContaining<UpdateStaffDtoValidator>();
+            builder.Services.AddValidatorsFromAssemblyContaining<AddDepartmentViewModelValidator>();
 
             var app = builder.Build();
 

@@ -1,10 +1,14 @@
 ﻿@page "/staffs"
+@using AutoMapper
 @inject StaffsService StaffsService
 @inject IDialogService DialogService
+@inject ISnackbar Snackbar
+@implements IDisposable
+
 <div class="container-fluid">
-    <PageTitle>HeHe </PageTitle>
-    <h3>Staffs Manager</h3>
-    <MudDataGrid @ref="dataGrid" T="StaffDto" ServerData="ServerReload" Filterable="false" Style="margin">
+    <PageTitle>HeHe</PageTitle>
+    <h3 class="mt-4">Staffs Manager</h3>
+    <MudDataGrid @ref="dataGrid" T="StaffDto" ServerData="ServerReload" Filterable="false" Style="margin: auto" RowClick="OpenUpdateDialog">
         <ToolBarContent>
             <MudButton Class="me-2" @onclick="CreateUser"
                        StartIcon="@Icons.Material.Filled.PersonAddAlt1"
@@ -12,6 +16,19 @@
                        Color="Color.Primary">
                 Add New Satff
 
+            </MudButton>
+            <MudFileUpload Class="me-2" T="IBrowserFile" @ref="excelUpload" FilesChanged="UpLoadFile">
+                <ActivatorContent>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Custom.FileFormats.FileExcel">
+                        Upload Excel
+                    </MudButton>
+                </ActivatorContent>
+            </MudFileUpload>
+            <MudButton Class="me-2" @onclick="ExportExcel"
+                       StartIcon="@Icons.Material.Filled.Download"
+                       Variant="Variant.Filled"
+                       Color="Color.Info">
+                Export Excel
             </MudButton>
             <MudSpacer />
             <MudTextField T="string" ValueChanged="@(s=>OnSearch(s))" Placeholder="Search" Adornment="Adornment.Start"
@@ -39,7 +56,7 @@
                     @(DateTimeOffset.FromUnixTimeMilliseconds(context.Item.CreatedDate).LocalDateTime.ToString("ddd MMM yyyy"))
                 </CellTemplate>
             </PropertyColumn>
-            <PropertyColumn Property="x => x.LastModifiedDate" Title="Created Date">
+            <PropertyColumn Property="x => x.LastModifiedDate" Title="LastModified Date">
                 <CellTemplate>
                     @(DateTimeOffset.FromUnixTimeMilliseconds(context.Item.LastModifiedDate).LocalDateTime.ToString("ddd MMM yyyy"))
                 </CellTemplate>
@@ -47,15 +64,18 @@
             <TemplateColumn CellClass="d-flex justify-end">
                 <CellTemplate>
                     <MudButton Class="me-2" 
-                                Variant="Variant.Filled" 
-                                StartIcon="@Icons.Material.Filled.EditNote" Color="@Color.Warning" 
-                                OnClick="@(()this.UpdateStaff(context))">
-                    </MudButton>
-                    <MudButton Class="me-2"
-                               Variant="Variant.Filled"
-                               tartIcon="@Icons.Material.Filled.Delete" Color="@Color.Warning"
-                               OnClick="@(()this.DeleteStaff(context))">
-                    </MudButton>
+                               Variant="Variant.Filled" 
+                               StartIcon="@Icons.Material.Filled.SwapHoriz" 
+                               Color="Color.Info" 
+                             OnClick="@(() => ToggleStaffStatusAsync(context.Item))"> 
+                        Update Status
+                     </MudButton>
+                     <MudButton Class="me-2" 
+                     Variant="Variant.Filled"
+                     StartIcon="@Icons.Material.Filled.ViewHeadline"
+                     Color="@Color.Secondary"
+                               OnClick="@(() => ShowDetails(context.Item))">
+                     Details </MudButton>
                 </CellTemplate>
             </TemplateColumn>
         </Columns>
@@ -66,8 +86,10 @@
 </div>
 
 @code {
+    MudFileUpload<IBrowserFile> excelUpload;
     MudDataGrid<StaffDto> dataGrid;
     string searchString = null;
+    private readonly CancellationTokenSource cts = new();
 
     private async Task CreateUser()
     {
@@ -76,9 +98,55 @@
                 MaxWidth = MaxWidth.ExtraSmall
             };
 
-        var dialog = DialogService.Show<CreateorUpdateStaff>("Create Staff", options);
+        var dialog = DialogService.Show<CreateStaffDialog>("Create Staff", options);
         var result = await dialog.Result;
         if (result is not null && !result.Canceled) await dataGrid.ReloadServerData();
+    }
+    private async Task OpenUpdateDialog(DataGridRowClickEventArgs<StaffDto> args)
+    {
+        if (cts.IsCancellationRequested) return;
+
+        var updateStaffDto = new UpdateStaffDto{
+                Name = args.Item.Name,
+                AccountFe = args.Item.AccountFe,
+                AccountFpt = args.Item.AccountFpt,
+                Status = args.Item.Status
+        };
+        var parameters = new DialogParameters
+            {
+                ["Staff"] = updateStaffDto,
+                ["StaffId"] = args.Item.Id
+            };
+
+        var options = new DialogOptions
+            {
+                MaxWidth = MaxWidth.Small
+            };
+
+        var dialog = DialogService.Show<UpdateStaffDialog>("Cập nhật nhân viên", parameters, options);
+        var result = await dialog.Result;
+        if (result != null && !result.Canceled && !cts.IsCancellationRequested)
+        {
+            Snackbar.Add("Cập nhật nhân viên thành công", MudBlazor.Severity.Success);
+            await dataGrid.ReloadServerData();
+        }
+    }
+    private async Task ShowDetails(StaffDto staffDto){
+        if (cts.IsCancellationRequested) return;
+
+        var parameters = new DialogParameters
+            {
+                ["Staff"] = staffDto
+            };
+
+        var options = new DialogOptions
+            {
+                MaxWidth = MaxWidth.Medium,
+                CloseButton = true
+            };
+
+        var dialog = DialogService.Show<StaffDetailsDialog>("Quản lý bộ môn / chuyên ngành", parameters, options);
+        await dialog.Result;
     }
 
     private async Task<GridData<StaffDto>> ServerReload(GridState<StaffDto> state)
@@ -151,7 +219,63 @@
 
     private Task OnSearch(string text)
     {
+        if (cts.IsCancellationRequested) return Task.CompletedTask;
         searchString = text;
         return dataGrid.ReloadServerData();
+    }
+    private async Task ToggleStaffStatusAsync(StaffDto staff)
+    {
+        var confirm = await DialogService.ShowMessageBox(
+            "Xác nhận",
+            $"Bạn có muốn đổi trạng thái nhân viên {staff.Name}?",
+            yesText: "Có", cancelText: "Hủy");
+        if (confirm == true)
+        {
+            try
+            {
+                var statusUpdateDto = new StaffStatusUpdateDto
+                    {
+                        Status = (byte)(staff.Status == 0 ? 1 : 0),
+                        Reason = "Thay đổi trạng thái từ giao diện"
+                    };
+                var success = await StaffsService.UpdateStaffStatusAsync(staff.Id, statusUpdateDto);
+                if (success)
+                {
+                    Snackbar.Add("Đổi trạng thái thành công", MudBlazor.Severity.Success);
+                    await dataGrid.ReloadServerData();
+                }
+                else
+                {
+                    Snackbar.Add("Đổi trạng thái thất bại", MudBlazor.Severity.Error);
+                }
+            }
+            catch (Exception ex)
+            {
+                Snackbar.Add($"Lỗi: {ex.Message}", MudBlazor.Severity.Error);
+            }
+        }
+    }
+    public void Dispose()
+    {
+        cts.Cancel();
+        cts.Dispose();
+    }
+    private async Task UpLoadFile(IBrowserFile file)
+    {
+        var filName = file.Name;
+
+        if (file != null)
+        {
+            var result = await StaffsService.ImportStaffAsync(file, filName);
+            if (result)
+            {
+                Snackbar.Add("Upload file thành công", MudBlazor.Severity.Success);
+                await dataGrid.ReloadServerData();
+            }
+            else
+            {
+                Snackbar.Add("Upload file thất bại", MudBlazor.Severity.Error);
+            }
+        }
     }
 }

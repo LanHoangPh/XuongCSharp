@@ -1,23 +1,27 @@
-﻿@inject StaffsService StaffsService
+﻿@using MudCilent.Enum
+@inject StaffsService StaffsService
 @inject ISnackbar Snackbar
 
 <EditForm Model="Staff" OnValidSubmit="HandleValidSubmit">
     <MudDialog>
+        <TitleContent>
+            <MudText Typo="Typo.h6">Add New Staff</MudText>
+        </TitleContent>
         <DialogContent>
-            <FluentValidationValidator />
-            <ValidationSummary />
+            <FluentValidationValidator/>
+            <ValidationSummary/>
             <MudGrid Class="mb-5">
                 <MudItem xs="12">
-                    <MudTextField Variant="Variant.Outlined" ShrinkLabel @bind-Value="Staff.Name" Label="Tên nhân viên" Required="true" For="@(() => Staff.Name )"/>
+                    <MudTextField Variant="Variant.Outlined" ShrinkLabel @bind-Value="Staff.Name" Label="Tên nhân viên" Required="true" For="@(() => Staff.Name)"/>
                 </MudItem>
                 <MudItem xs="12">
-                    <MudTextField Variant="Variant.Outlined" ShrinkLabel @bind-Value="Staff.StaffCode" Label="Mã nhân viên" Required="true" For="@(() => Staff.StaffCode )" />
+                    <MudTextField Variant="Variant.Outlined" ShrinkLabel @bind-Value="Staff.StaffCode" Label="Mã nhân viên" Required="true" For="@(() => Staff.StaffCode)"/>
                 </MudItem>
                 <MudItem xs="12">
-                    <MudTextField Variant="Variant.Outlined" ShrinkLabel @bind-Value="Staff.AccountFe" Label="Tài khoản FE" Required="true" For="@(() => Staff.AccountFe )" />
+                    <MudTextField Variant="Variant.Outlined" ShrinkLabel @bind-Value="Staff.AccountFe" Label="Tài khoản FE" Required="true" For="@(() => Staff.AccountFe)"/>
                 </MudItem>
                 <MudItem xs="12">
-                    <MudTextField Variant="Variant.Outlined" ShrinkLabel @bind-Value="Staff.AccountFpt" Label="Tài khoản FPT" Required="true" For="@(() => Staff.AccountFpt )" />
+                    <MudTextField Variant="Variant.Outlined" ShrinkLabel @bind-Value="Staff.AccountFpt" Label="Tài khoản FPT" Required="true" For="@(() => Staff.AccountFpt)"/>
                 </MudItem>
                 <MudItem xs="12">
                     <MudSelect Label="Trạng thái" @bind-Value="Staff.Status" Variant="Variant.Outlined">
@@ -35,7 +39,7 @@
 </EditForm>
 
 @code{
-    [CascadingParameter]
+    [CascadingParameter] 
     private IMudDialogInstance MudDialog { get; set; }
 
     public CreateStaffDto Staff { get; set; } = new CreateStaffDto();
@@ -45,13 +49,13 @@
         try
         {
             var result = await StaffsService.AddStaffAsync(Staff);
-            Snackbar.Add("Thêm nhân viên thành công", MudBlazor.Severity.Success); //
+            Snackbar.Add("Thêm nhân viên thành công", MudBlazor.Severity.Success); 
             MudDialog.Close(DialogResult.Ok(result));
         }
-        catch (HttpRequestException)
-        {
-            Snackbar.Add("Thêm nhân viên thất bại: Không kết nối được server", MudBlazor.Severity.Error);
-        }
+        // catch (HttpRequestException)
+        // {
+        //     Snackbar.Add("Thêm nhân viên thất bại: Không kết nối được server", MudBlazor.Severity.Error);
+        // }
         catch (Exception ex)
         {
             Snackbar.Add($"Lỗi: {ex.Message}", MudBlazor.Severity.Error);

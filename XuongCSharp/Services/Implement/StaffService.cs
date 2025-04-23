@@ -322,7 +322,6 @@ namespace XuongCSharp.Services.Inteplement
             {
                 try
                 {
-                    // Validate staff data according to business rules
                     var validationErrors = ValidateStaffImport(staffImport);
                     if (validationErrors.Any())
                     {
@@ -339,13 +338,10 @@ namespace XuongCSharp.Services.Inteplement
                         continue;
                     }
 
-                    // Check if staff already exists
                     var existingStaff = await _context.Staffs.FirstOrDefaultAsync(s => s.StaffCode == staffImport.StaffCode);
 
-                    // Create or update staff
                     if (existingStaff == null)
                     {
-                        // Create new staff
                         var newStaff = new Staff
                         {
                             Id = Guid.NewGuid(),
@@ -359,14 +355,12 @@ namespace XuongCSharp.Services.Inteplement
 
                         await _context.Staffs.AddAsync(newStaff);
 
-                        // Assign department and major if provided
                         await AssignDepartmentAndMajor(newStaff.Id, staffImport);
 
                         successCount++;
                     }
                     else
                     {
-                        // Update existing staff
                         existingStaff.Name = staffImport.Name;
                         existingStaff.AccountFpt = staffImport.AccountFpt;
                         existingStaff.AccountFe = staffImport.AccountFe;
@@ -375,7 +369,6 @@ namespace XuongCSharp.Services.Inteplement
 
                         _context.Staffs.Update(existingStaff);
 
-                        // Assign department and major if provided
                         await AssignDepartmentAndMajor(existingStaff.Id, staffImport);
 
                         successCount++;
@@ -430,6 +423,19 @@ namespace XuongCSharp.Services.Inteplement
 
             if (major == null)
                 throw new KeyNotFoundException($"Specialization with code {staffImport.MajorCode} not found");
+
+            var existingAssignmentInFacility = await _context.StaffMajorFacilities
+                        .Include(smf => smf.MajorFacility)
+                            .ThenInclude(mf => mf.DepartmentFacility)
+                        .FirstOrDefaultAsync(smf =>
+                            smf.IdStaff == staffId &&
+                            smf.MajorFacility.DepartmentFacility.IdFacility == facility.Id &&
+                            smf.Status == 1);
+
+            if (existingAssignmentInFacility != null)
+            {
+                throw new InvalidOperationException($"Staff is already assigned to a department and major in facility {staffImport.LocationCode}. Only one department and major per facility is allowed.");
+            }
 
             // Find or create department-facility association
             var departmentFacility = await _context.DepartmentFacilities
@@ -500,19 +506,16 @@ namespace XuongCSharp.Services.Inteplement
         {
             var errors = new List<string>();
 
-            // Staff code validation
             if (string.IsNullOrWhiteSpace(staffImport.StaffCode))
                 errors.Add("Staff code is required");
             else if (staffImport.StaffCode.Length > 15)
                 errors.Add("Staff code cannot exceed 15 characters");
 
-            // Name validation
             if (string.IsNullOrWhiteSpace(staffImport.Name))
                 errors.Add("Name is required");
             else if (staffImport.Name.Length > 100)
                 errors.Add("Name cannot exceed 100 characters");
 
-            // FPT email validation
             if (string.IsNullOrWhiteSpace(staffImport.AccountFpt))
                 errors.Add("FPT email is required");
             else if (staffImport.AccountFpt.Length > 100)
@@ -522,7 +525,6 @@ namespace XuongCSharp.Services.Inteplement
             else if (staffImport.AccountFpt.Contains(" ") || ContainsVietnameseChars(staffImport.AccountFpt))
                 errors.Add("FPT email must not contain whitespace or Vietnamese characters");
 
-            // FE email validation
             if (string.IsNullOrWhiteSpace(staffImport.AccountFe))
                 errors.Add("FE email is required");
             else if (staffImport.AccountFe.Length > 100)
@@ -532,7 +534,6 @@ namespace XuongCSharp.Services.Inteplement
             else if (staffImport.AccountFe.Contains(" ") || ContainsVietnameseChars(staffImport.AccountFe))
                 errors.Add("FE email must not contain whitespace or Vietnamese characters");
 
-            // Location, department, and major validation
             if (string.IsNullOrWhiteSpace(staffImport.LocationCode))
                 errors.Add("Location code is required");
 
@@ -547,7 +548,6 @@ namespace XuongCSharp.Services.Inteplement
 
         private bool ContainsVietnameseChars(string value)
         {
-            // Simple check for basic Vietnamese characters
             string vietnameseChars = "àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ";
             return value.ToLower().Any(c => vietnameseChars.Contains(c));
         }
@@ -555,8 +555,8 @@ namespace XuongCSharp.Services.Inteplement
         public async Task<List<ImportLogDto>> GetImportHistoryAsync()
         {
             var importLogs = await _context.ImportLogs
-        .OrderByDescending(log => log.ImportDate)
-        .ToListAsync();
+                .OrderByDescending(log => log.ImportDate)
+                .ToListAsync();
 
             return _mapper.Map<List<ImportLogDto>>(importLogs);
         }
@@ -564,8 +564,8 @@ namespace XuongCSharp.Services.Inteplement
         public async Task<ImportLogDetailDto> GetImportLogDetailsAsync(Guid importLogId)
         {
             var importLog = await _context.ImportLogs
-        .Include(log => log.ImportLogDetails)
-        .FirstOrDefaultAsync(log => log.Id == importLogId);
+                .Include(log => log.ImportLogDetails)
+                .FirstOrDefaultAsync(log => log.Id == importLogId);
 
             if (importLog == null)
                 throw new KeyNotFoundException($"Import log with ID {importLogId} not found");

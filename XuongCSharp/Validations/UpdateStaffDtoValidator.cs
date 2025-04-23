@@ -30,7 +30,6 @@
 
         private bool ContainsVietnameseChars(string value)
         {
-            // Simple check for basic Vietnamese characters
             string vietnameseChars = "àáạảãâầấậẩẫăằắặẳẵèéẹẻẽêềếệểễìíịỉĩòóọỏõôồốộổỗơờớợởỡùúụủũưừứựửữỳýỵỷỹđ";
             return value.ToLower().Any(c => vietnameseChars.Contains(c));
         }
